@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  name        String?
+  role        String
+  isFirstTime Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  addresses       Address[]
+  orders          Order[]           @relation("CustomerOrders")
+  mill            Mill?
+  deliveryPartner DeliveryPartner?
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  line1     String
+  lat       Float
+  lng       Float
+  isDefault Boolean @default(false)
+}
+
+model Mill {
+  id               String  @id @default(cuid())
+  ownerId          String  @unique
+  owner            User    @relation(fields: [ownerId], references: [id])
+  name             String
+  ownerName        String
+  address          String
+  lat              Float
+  lng              Float
+  isOpen           Boolean @default(true)
+  deliveryRadiusKm Float   @default(8)
+  rating           Float   @default(4.5)
+  reviews          Int     @default(0)
+  deliveryFee      Int     @default(15)
+  licenseUrl       String?
+  image            String?
+  specialties      String
+  yearsActive      Int     @default(5)
+  hoursOpen        String  @default("07:00")
+  hoursClose       String  @default("21:00")
+
+  products MillProduct[]
+  orders   Order[]
+}
+
+model Grain {
+  id               String  @id @default(cuid())
+  name             String
+  localName        String
+  category         String
+  pricePerKg       Float
+  grindingFeePerKg Float
+  image            String?
+  description      String
+  popular          Boolean @default(false)
+  subTypes         String?
+
+  millProducts MillProduct[]
+}
+
+model MillProduct {
+  id                String  @id @default(cuid())
+  millId            String
+  mill              Mill    @relation(fields: [millId], references: [id], onDelete: Cascade)
+  grainId           String
+  grain             Grain   @relation(fields: [grainId], references: [id])
+  customPrice       Float
+  customGrindingFee Float
+  inStock           Boolean @default(true)
+
+  @@unique([millId, grainId])
+}
+
+model Order {
+  id            String  @id @default(cuid())
+  displayId     String  @unique
+  customerId    String
+  customer      User    @relation("CustomerOrders", fields: [customerId], references: [id])
+  millId        String
+  mill          Mill    @relation(fields: [millId], references: [id])
+  riderId       String?
+  rider         DeliveryPartner? @relation(fields: [riderId], references: [id])
+
+  status        String  @default("PLACED")
+  address       String
+  addressLat    Float
+  addressLng    Float
+  total         Float
+  deliveryFee   Int
+  paymentMethod String
+  paymentStatus String  @default("PENDING")
+
+  riderLat Float?
+  riderLng Float?
+
+  placedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+}
+
+model OrderItem {
+  id               String  @id @default(cuid())
+  orderId          String
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  grainId          String?
+  grainName        String
+  subType          String?
+  quantityKg       Float
+  texture          String
+  roasted          Boolean @default(false)
+  pricePerKg       Float
+  grindingFeePerKg Float
+}
+
+model DeliveryPartner {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id])
+  vehicleInfo String?
+  licenseUrl  String?
+  isOnline    Boolean @default(false)
+  currentLat  Float?
+  currentLng  Float?
+  rating      Float   @default(4.8)
+  trips       Int     @default(0)
+
+  orders Order[]
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
