@@ -7,7 +7,7 @@ import { api } from "@/lib/api-client"
 import { formatINR, type OrderStatus } from "@/lib/data"
 import { MapView } from "@/components/map-view"
 import { getPusherClient } from "@/lib/pusher-client"
-import { ArrowLeft, Check, Package, Wheat, CheckCircle2, Bike, Home, Phone, MapPin } from "lucide-react"
+import { ArrowLeft, Check, Package, Wheat, CheckCircle2, Bike, Home, Phone, MapPin, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -70,6 +70,7 @@ export default function TrackOrderPage({ params }: { params: Promise<{ id: strin
     items: { quantityKg: number; grainName: string; texture: string; pricePerKg: number; grainId: string }[];
     riderLat?: number; riderLng?: number; millLat?: number; millLng?: number;
     addressLat?: number; addressLng?: number; deliveryPartner?: string; riderPhone?: string;
+    deliveryOtp?: string;
   } | undefined
 
   if (isError) {
@@ -195,6 +196,23 @@ export default function TrackOrderPage({ params }: { params: Promise<{ id: strin
               <Phone className="size-4" />
             </Button>
           )}
+        </div>
+      )}
+
+      {found.deliveryOtp && currentStatus !== "delivered" && (
+        <div className="mx-5 mb-4 rounded-2xl border border-amber-200/50 bg-amber-500/10 p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <ShieldCheck className="size-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Delivery OTP</p>
+              <p className="text-3xl font-black tracking-[0.25em] text-foreground mt-1">{found.deliveryOtp}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground leading-normal">
+            Share this 4-digit verification code with the delivery partner when they arrive to confirm secure receipt.
+          </p>
         </div>
       )}
 

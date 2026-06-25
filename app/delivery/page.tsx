@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useDelivery } from "@/lib/delivery-context"
 import { useAuth } from "@/lib/auth-context"
@@ -17,13 +18,45 @@ import { toast } from "sonner"
 import { IndianRupee, Package, MapPin, Phone, Navigation, Store } from "lucide-react"
 
 export default function DeliveryHomePage() {
-  const { online, setOnline, available, active, advance, complete, earnings, completed } = useDelivery()
+  const { online, setOnline, available, active, advance, complete, completeWithOtp, earnings, completed } = useDelivery()
   const { user } = useAuth()
+
+  const [showOtpModal, setShowOtpModal] = useState(false)
+  const [otpVal, setOtpVal] = useState("")
+  const [verifying, setVerifying] = useState(false)
 
   const { data: profile } = useQuery({
     queryKey: ["delivery-profile"],
     queryFn: () => api<{ name: string | null }>("/api/delivery/profile"),
   })
+
+  // Listen for the virtual SMS simulator autofill event
+  useEffect(() => {
+    const handleAutofill = (e: Event) => {
+      const customEvent = e as CustomEvent<{ otp: string; phone: string }>
+      const { otp: autofilledOtp } = customEvent.detail
+      if (showOtpModal) {
+        setOtpVal(autofilledOtp)
+      }
+    }
+    window.addEventListener("dev-otp-autofill", handleAutofill)
+    return () => window.removeEventListener("dev-otp-autofill", handleAutofill)
+  }, [showOtpModal])
+
+  const handleVerifyDelivery = async () => {
+    if (otpVal.length < 4) return
+    setVerifying(true)
+    try {
+      await completeWithOtp(otpVal)
+      toast.success("Delivery completed! Payout added.")
+      setShowOtpModal(false)
+      setOtpVal("")
+    } catch {
+      // Toast message will be shown by statusMut error handler in context
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   const displayName = profile?.name ?? user?.name ?? "Partner"
 
@@ -123,8 +156,7 @@ export default function DeliveryHomePage() {
               <SlideConfirm
                 label="Slide to confirm delivered"
                 onConfirm={() => {
-                  complete()
-                  toast.success("Delivery completed! Payout added.")
+                  setShowOtpModal(true)
                 }}
               />
             )}
@@ -151,6 +183,54 @@ export default function DeliveryHomePage() {
             <Link href="/delivery/jobs">View available jobs</Link>
           </Button>
         </Card>
+      )}
+
+      {/* Delivery Verification OTP Modal */}
+      {showOtpModal && active && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in scale-in duration-200">
+            <h3 className="text-lg font-bold text-foreground">Verify Delivery OTP</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Please enter the 4-digit verification code sent to <strong>+91 {active.customerPhone}</strong> to complete delivery.
+            </p>
+            
+            <div className="mt-5">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={otpVal}
+                onChange={(e) => setOtpVal(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="0 0 0 0"
+                className="w-full text-center text-3xl font-extrabold tracking-[0.5em] py-3.5 border border-input rounded-2xl bg-background focus:ring-2 focus:ring-ring outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleVerifyDelivery()
+                }}
+              />
+            </div>
+            
+            <div className="mt-6 flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl bg-transparent"
+                onClick={() => {
+                  setShowOtpModal(false)
+                  setOtpVal("")
+                }}
+                disabled={verifying}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl"
+                onClick={handleVerifyDelivery}
+                disabled={verifying || otpVal.length < 4}
+              >
+                {verifying ? "Verifying..." : "Confirm"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -3,36 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { generateOtp } from "@/lib/auth"
 import { json, error } from "@/lib/api-utils"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { sendSms } from "@/lib/sms"
 
 const schema = z.object({
   phone: z.string().min(10).max(10),
 })
-
-async function sendSmsMSG91(phone: string, otp: string): Promise<void> {
-  const authKey = process.env.MSG91_KEY
-  const templateId = process.env.MSG91_TEMPLATE_ID
-
-  if (!authKey || !templateId) return // skip in dev
-
-  const body = JSON.stringify({
-    template_id: templateId,
-    mobile: `91${phone}`,
-    authkey: authKey,
-    otp,
-  })
-
-  const res = await fetch("https://api.msg91.com/api/v5/otp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body,
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    console.error("MSG91 error:", text)
-    throw new Error("Failed to send OTP SMS")
-  }
-}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null)
@@ -56,17 +31,17 @@ export async function POST(req: Request) {
   await prisma.otpCode.deleteMany({ where: { phone } })
   await prisma.otpCode.create({ data: { phone, code, expiresAt } })
 
-  const hasSms = !!process.env.MSG91_KEY
+  const hasSms = !!(
+    process.env.MSG91_KEY ||
+    (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+  )
 
-  if (hasSms) {
-    try {
-      await sendSmsMSG91(phone, code)
-    } catch (e) {
-      console.error("SMS send failed:", e)
-    }
-  } else {
-    // No SMS provider configured — log OTP so it's visible in Vercel Function Logs
-    console.log(`[ChakkiGhar OTP] phone=${phone} otp=${code}`)
+  const messageBody = `ChakkiGhar: Your verification OTP is ${code}. Valid for 10 minutes.`
+
+  try {
+    await sendSms(phone, messageBody, code)
+  } catch (e) {
+    console.error("SMS send failed:", e)
   }
 
   return json({

@@ -40,6 +40,26 @@ export function OtpLogin({ role }: { role: Role }) {
     if (step === "otp") inputs.current[0]?.focus()
   }, [step])
 
+  // Listen for the virtual SMS simulator autofill event
+  useEffect(() => {
+    const handleAutofill = (e: Event) => {
+      const customEvent = e as CustomEvent<{ otp: string; phone: string }>
+      const { otp: autofilledOtp, phone: targetPhone } = customEvent.detail
+      
+      const cleanTarget = targetPhone.replace(/\D/g, "")
+      const cleanCurrent = phone.replace(/\D/g, "")
+      
+      if (cleanTarget === cleanCurrent && step === "otp") {
+        const digits = autofilledOtp.split("").slice(0, 4)
+        setOtp(digits)
+        verify(autofilledOtp)
+      }
+    }
+
+    window.addEventListener("dev-otp-autofill", handleAutofill)
+    return () => window.removeEventListener("dev-otp-autofill", handleAutofill)
+  }, [phone, step])
+
   async function sendOtp() {
     if (phone.replace(/\D/g, "").length < 10) {
       toast.error("Enter a valid 10-digit mobile number")
@@ -70,8 +90,8 @@ export function OtpLogin({ role }: { role: Role }) {
     if (digit && i < 3) inputs.current[i + 1]?.focus()
   }
 
-  async function verify() {
-    const code = otp.join("")
+  async function verify(codeOverride?: string) {
+    const code = codeOverride || otp.join("")
     if (code.length < 4) {
       toast.error("Enter the 4-digit code")
       return

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Geist_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { Providers } from '@/components/providers'
+import { DevMessageSimulator } from '@/components/ui/dev-message-simulator'
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
 
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
         <Toaster position="top-center" />
+        <DevMessageSimulator />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

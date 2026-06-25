@@ -14,6 +14,7 @@ interface DeliveryState {
   accept: (id: string) => Promise<void>
   advance: (status: OrderStatus) => void
   complete: () => void
+  completeWithOtp: (otp: string) => Promise<void>
   earnings: number
   completed: number
   loading: boolean
@@ -51,8 +52,8 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
   })
 
   const statusMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api(`/api/delivery/status/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    mutationFn: ({ id, status, otp }: { id: string; status: string; otp?: string }) =>
+      api(`/api/delivery/status/${id}`, { method: "PATCH", body: JSON.stringify({ status, otp }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["delivery-jobs"] })
       qc.invalidateQueries({ queryKey: ["delivery-profile"] })
@@ -96,6 +97,14 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     [data?.active, statusMut],
   )
 
+  const completeWithOtp = useCallback(
+    async (otp: string) => {
+      if (!data?.active) return
+      await statusMut.mutateAsync({ id: data.active.id, status: "delivered", otp })
+    },
+    [data?.active, statusMut],
+  )
+
   return (
     <DeliveryContext.Provider
       value={{
@@ -106,6 +115,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
         accept: (id) => acceptMut.mutateAsync(id),
         advance,
         complete: () => advance("delivered"),
+        completeWithOtp,
         earnings: data?.earnings ?? 0,
         completed: data?.completed ?? 0,
         loading: isLoading,

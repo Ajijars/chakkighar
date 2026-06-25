@@ -91,6 +91,7 @@ export function serializeOrder(o: OrderWithRelations) {
     paymentStatus: o.paymentStatus.toLowerCase(),
     deliveryPartner: o.rider?.user.name ?? undefined,
     riderPhone: o.rider?.user.phone ?? undefined,
+    deliveryOtp: o.deliveryOtp,
     distanceKm: 0,
     riderLat: o.riderLat,
     riderLng: o.riderLng,
